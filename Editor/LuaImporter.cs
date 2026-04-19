@@ -5,8 +5,48 @@ using System.IO;
 
 using SplashEdit.RuntimeCode;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 namespace SplashEdit.EditorCode
 {
+#if UNITY_EDITOR
+    // ================================
+    // AUTO DEFINE SYMBOL BOOTSTRAP
+    // ================================
+    [InitializeOnLoad]
+    internal static class ScriptingDefinesBootstrap
+    {
+        private const string LUA = "LUA_SUPPORT";
+        private const string PYTHON = "PYTHON_SUPPORT";
+
+        static ScriptingDefinesBootstrap()
+        {
+            var group = EditorUserBuildSettings.selectedBuildTargetGroup;
+
+            string defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(group);
+
+            defines = Add(defines, LUA);
+            defines = Add(defines, PYTHON);
+
+            PlayerSettings.SetScriptingDefineSymbolsForGroup(group, defines);
+        }
+
+        private static string Add(string defines, string symbol)
+        {
+            if (!defines.Contains(symbol))
+            {
+                if (defines.Length > 0)
+                    defines += ";";
+
+                defines += symbol;
+            }
+            return defines;
+        }
+    }
+#endif
+
 #if LUA_SUPPORT && PYTHON_SUPPORT
     [ScriptedImporter(2, new[] { "lua", "py" })]
     public class ScriptImporter : ScriptedImporter
@@ -17,9 +57,9 @@ namespace SplashEdit.EditorCode
     [ScriptedImporter(2, "py")]
     public class ScriptImporter : ScriptedImporter
 #else
-    // Nothing enabled, no importer compiled, zero risk. In this specific else case do not declare ScriptImporter at all.
-    // The if elif statements determine whether you allow either Lua or Python support or just one of them. Python support might need to be added incase Python were to be allowed. I hope that Python support will be added eventually, it'd be greatly beneficial to this project.
+    // No importer compiled
 #endif
+
 #if LUA_SUPPORT || PYTHON_SUPPORT
     {
         public override void OnImportAsset(AssetImportContext ctx)
@@ -28,7 +68,6 @@ namespace SplashEdit.EditorCode
             string code = File.ReadAllText(ctx.assetPath);
             string fileName = Path.GetFileName(ctx.assetPath);
 
-            // Always safe fallback
             var text = new TextAsset(code);
             text.name = fileName;
             ctx.AddObjectToAsset("Text", text);
@@ -59,7 +98,6 @@ namespace SplashEdit.EditorCode
             }
 #endif
 
-            // Absolute safety fallback (should never hit, but prevents import failure)
             ctx.SetMainObject(text);
         }
     }
